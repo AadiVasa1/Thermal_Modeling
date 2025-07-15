@@ -1,14 +1,17 @@
-import SingleCellTest as sct
+from SingleCellTest import SingleCell
 import matplotlib.pyplot as plt, numpy as np
 
-sct.solver_setter(200)
-print(sct.num_nodes)
+s = SingleCell()
+s.cell_properties_setter(mass = .070, diameter = 21.55/1000, height = 70.15/1000, internal_resistance = 15/1000)
+s.test_conditions_setter(current = 70/3, time = 400)
+s.test_data_grabber_top_and_middle("Cold_Plate_Test_Data_Filtered.xlsx")
 
-sct.test_data_grabber_top_and_middle("Cold_Plate_Test_Data_Filtered.xlsx")
+s.solver_setter(100)
+print(s.num_nodes)
 
-k_estimate, c_estimate = sct.thermal_prop_guess(10, 1000)
-time_v, x_v, temp_c = sct.cell_simulation(k_estimate,c_estimate)
-location = sct.temp_sensor_location()
+k_estimate, c_estimate = s.thermal_prop_guess(10, 1000)
+time_v, x_v, temp_c = s.cell_simulation(k_estimate,c_estimate)
+location = s.temp_sensor_location
 print(f"Estimated Thermal Conductivity (W/mK): {k_estimate}")
 print(f"Estimated Specific Heat Capacity (J/kgC): {c_estimate}")
 print(f"Average Temperature of cell at end of run: {np.mean(temp_c[-1, :])}")
@@ -20,10 +23,10 @@ plt.ylabel("Temperature (C)")
 plt.show(block=False)
 
 plt.figure()
-plt.plot(sct.time_measured, sct.temp_measured, label = "Actual Data, Top")
-plt.plot(sct.time_measured, sct.temp_measured2, label = "Actual Data, Middle")
+plt.plot(s.time_measured, s.temp_measured, label = "Actual Data, Top")
+plt.plot(s.time_measured, s.temp_measured2, label = "Actual Data, Middle")
 plt.plot(time_v, temp_c[:,0], label = "Sim, Top")
-plt.plot(time_v, temp_c[:, sct.num_nodes//2], label = "Sim, Middle")
+plt.plot(time_v, temp_c[:, s.num_nodes//2], label = "Sim, Middle")
 plt.xlabel("Time (s)")
 plt.ylabel("Temperature (C)")
 plt.legend()
@@ -53,16 +56,17 @@ plt.show()
 
 
 
-# test_data_grabber_single()
+# s.test_data_grabber_single("Cold_Plate_Test_Data_Filtered.xlsx")
 
-# k_estimate, c_estimate = thermal_prop_guess(15, 1000)
-# time_v, x_v, temp_c = cell_simulation(k_estimate,c_estimate)
-# location = temp_sensor_location()
+# s.solver_setter(50)
+# print(s.num_nodes)
 
+# k_estimate, c_estimate = s.thermal_prop_guess(15, 1000)
+# time_v, x_v, temp_c = s.cell_simulation(k_estimate,c_estimate)
 
-# t,x,tt = cell_simulation(8, 769)
+# t,x,tt = s.cell_simulation(8, 769)
 
-# plt.plot(time_measured, temp_measured, label = "Actual Data, Top")
+# plt.plot(s.time_measured, s.temp_measured, label = "Actual Data, Top")
 # plt.plot(time_v, temp_c[:,location], label = "Sim, Top")
 # plt.plot(t,tt[:,location])
 # plt.legend()
