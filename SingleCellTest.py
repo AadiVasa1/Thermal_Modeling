@@ -1,10 +1,30 @@
 import math, numpy as np, matplotlib.pyplot as plt, pandas as pd
 from scipy.optimize import minimize
 
-class SingleCell:
+class SingleCellSimulation:
+    """
+    
+    This class can create a transient thermal simulation of a single cell across its length. 
+    Can also add in air cooling and see how transient temperature gradient looks.
+
+    If given test data in an excel sheet it can predict what the likely specific heat and axial thermal conductivity of the cell is.
+    Only the first 3 columns matter, look at Cold_Plate_Test_Data_Filtered.xlsx for an example. Also ensure that those columns span the entire height of the sheet
+    Can try to find results if given only one temperature sensor's data over time and location on cell height (less accurate) or if given top and middle temperature sensor vs time data (more accurate).
+
+    Assumptions:
+    1) Cell is uniformly heating across its length due to internal resistance
+    2) Radial Heat flows fast enough for radial thermal gradients to not be of concern (Biot Number <<1)
+    3) The floor on which the cell lies on alway remains at ambient temperature
+    4) If there is no air cooling (air velocity = 0 m/s), h = 5
+
+    """
 
     def __init__(self):
+        """
+        Does nothing lol, simply for object creation
+        """
         pass
+
     """
     ###############################################################################################
     Setters, Call in this Order when Creating

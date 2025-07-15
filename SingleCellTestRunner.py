@@ -1,12 +1,12 @@
-from SingleCellTest import SingleCell
+from SingleCellTest import SingleCellSimulation
 import matplotlib.pyplot as plt, numpy as np
 
-s = SingleCell()
+s = SingleCellSimulation()
 s.cell_properties_setter(mass = .070, diameter = 21.55/1000, height = 70.15/1000, internal_resistance = 15/1000)
 s.test_conditions_setter(current = 70/3, time = 400)
 s.test_data_grabber_top_and_middle("Cold_Plate_Test_Data_Filtered.xlsx")
 
-s.solver_setter(100)
+s.solver_setter(50)
 print(s.num_nodes)
 
 k_estimate, c_estimate = s.thermal_prop_guess(10, 1000)
