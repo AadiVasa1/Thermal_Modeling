@@ -47,7 +47,7 @@ class SingleCell:
 
         self.temp_sensor_location = temperature_sensor_location #-1 for top, 0 for middle, 1 for bottom, will be used if data given is only from one test sensor
 
-    def solver_setter(self, number_nodes):
+    def solver_setter(self, number_nodes = 50):
         """
         Sets up finite difference properties for cell_simulations solver
         """
