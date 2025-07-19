@@ -186,7 +186,7 @@ class SingleCellSimulation:
         Boundary condition: bottom of cell held at ambient temperature
         :param k: Thermal conductivity of cell
         :param c: Specific heat capacity of cell
-        :return: time and temp values at a particular location, can change based on what you want reported
+        :return: xvals array and timevals array, along with calculated cell temperature 2d array with rows = timeval and columns = node (0 is top)
         """
         if math.isnan(k):
             raise RuntimeError("k value reached NaN, check guess function, input or excel sheet")
