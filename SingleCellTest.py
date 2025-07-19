@@ -1,5 +1,6 @@
 import math, numpy as np, matplotlib.pyplot as plt, pandas as pd
 from scipy.optimize import minimize
+from scipy.integrate import solve_ivp
 
 class SingleCellSimulation:
     """
@@ -192,7 +193,6 @@ class SingleCellSimulation:
         elif math.isnan(c):
             raise RuntimeError("c value reached NaN, check guess function, input, or excel sheet")
 
-        density_cell = self.density_cell
         dx = self.dx
         runtime = self.runtime
         num_nodes = self.num_nodes
@@ -203,28 +203,22 @@ class SingleCellSimulation:
         m_sec = self.m_sec
         h = self.h
 
-        dt = .5 * density_cell * c * (dx ** 2) / k  # s, length per timestep, uses fourier stability condition
-        timesteps = math.ceil(runtime / dt)
-
-        temp_cells = np.zeros((timesteps, num_nodes)) #array representing temperature across cell per timestep
-        temp_cells[0] = t_ambient
-
-        timevals = dt*np.arange(0, timesteps) #for plotting purposes, returns time at each timestep
         xvals = dx*np.arange(0, num_nodes) #for plotting purposes, 0=top of cell, last element = bottom of cell
 
-        for t in range(temp_cells.shape[0]-1): #finding temperature at each timestep
-            temp_cells[t+1,0] = (p_sec+h*(lat_sa_sec+area)*(t_ambient-temp_cells[t,0])+(k*area/dx)*(temp_cells[t,1]-temp_cells[t,0]))*dt/m_sec/c+temp_cells[t,0] #updating temperature at top of cell
-            temp_cells[t+1,1:-1] = (p_sec+h*lat_sa_sec*(t_ambient-temp_cells[t,1:-1])+(k*area/dx)*(temp_cells[t,:-2]+temp_cells[t,2:]-2*temp_cells[t,1:-1]))*dt/m_sec/c+temp_cells[t,1:-1] #updating temperature for interior nodes of cell
-            temp_cells[t+1,-1] = (p_sec+h*lat_sa_sec*(t_ambient-temp_cells[t,-1])+(k*area/dx)*(temp_cells[t,-2]+2*t_ambient-3*temp_cells[t,-1]))*dt/m_sec/c+temp_cells[t,-1] #updating temperature at bottom of cell
-
-        return timevals, xvals, temp_cells
-
-        # print(temp_cells)
-        # _,axes = plt.subplots(1,2)
-        #
-        # axes[0].plot(timevals,temp_cells[:,num_nodes//2])
-        # axes[1].plot(xvals, temp_cells[-1])
-        # plt.show()
+        def ivp_helper(t,temp):
+            """
+            returns dT/dt at each node per timestep to aid solve_ivp
+            """
+            dTdt = np.zeros_like(temp)
+            dTdt[0] = (p_sec+h*(lat_sa_sec+area)*(t_ambient-temp[0])+(k*area/dx)*(temp[1]-temp[0]))/m_sec/c #updating temperature at top of cell
+            dTdt[1:-1] = (p_sec+h*lat_sa_sec*(t_ambient-temp[1:-1])+(k*area/dx)*(temp[:-2]+temp[2:]-2*temp[1:-1]))/m_sec/c #updating temperature for interior nodes of cell
+            dTdt[-1] = (p_sec+h*lat_sa_sec*(t_ambient-temp[-1])+(k*area/dx)*(temp[-2]+2*t_ambient-3*temp[-1]))/m_sec/c #updating temperature at bottom of cell
+            return dTdt
+        
+        t_initial = np.full(num_nodes, t_ambient)
+        sol = solve_ivp(ivp_helper, (0,runtime), t_initial) #builds transient solution where sol.t = timesteps and sol.y.T = temps(t, num_nodes)
+        
+        return xvals, sol.t, sol.y.T
 
     """
     ###############################################################################################
@@ -251,7 +245,7 @@ class SingleCellSimulation:
         """
         k_guess, c_guess = parameters
 
-        time_vals, x_vals, t_sim = self.cell_simulation(k_guess, c_guess) #run cell sim with guessed parameters
+        x_vals, time_vals, t_sim = self.cell_simulation(k_guess, c_guess) #run cell sim with guessed parameters
 
         if self.temp_measured2 is None: #will run if only matching one sensor
             location = self.temp_sensor_location #uses actual temp sensor location to report temp at same point in sim and compare
@@ -263,6 +257,5 @@ class SingleCellSimulation:
         if self.temp_measured2 is None: #returns least squares difference between sim and test, lower is better
             return np.mean((t_sim_interp-self.temp_measured)**2)
         else:
-            return 0.5 * (np.mean((t_sim_interp - self.temp_measured)**2) + np.mean((t2_sim_interp - self.temp_measured2)**2)) #averages error if matching two curves
-        
+            return 0.5 * (np.mean((t_sim_interp - self.temp_measured)**2) + np.mean((t2_sim_interp - self.temp_measured2)**2)) #averages error if matching two curves     
     
