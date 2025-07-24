@@ -68,7 +68,7 @@ class LumpedCapacitanceModel:
         dTdt /= (self.lumped_weight * self.cell_specific_heat)
         return dTdt
 
-    def required_convection_coefficient(self, maximum_cell_temperature):
+    def required_convection_coefficient(self, maximum_cell_temperature = 60):
         """
         Given the maximum temperature the cells can reach, gives the minimum avg convection coefficient to cool the cells. Advised to test value in cfd and to add a safety factor to result.
 
