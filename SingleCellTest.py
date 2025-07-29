@@ -45,7 +45,7 @@ class SingleCellSimulation:
         self.vol = self.area*self.l #m3, volume of the cell
         self.density_cell = self.m/self.vol #kg/m3, density of the cell
     
-    def test_conditions_setter(self, current, time, air_velocity = 0, ambient_temp = 33, temperature_sensor_location = -1, air_density = 1.225, air_specific_heat = 1005, air_thermal_conductivity = .025, air_dynamic_viscosity = 18.74e6):
+    def test_conditions_setter(self, current, time, air_velocity = 0, ambient_temp = 33, temperature_sensor_location = -1, air_density = 1.225, air_specific_heat = 1005, air_thermal_conductivity = .025, air_dynamic_viscosity = 18.74e-6):
         """
         Single Cell Heating Test Conditions
         """
