@@ -1,7 +1,6 @@
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-
+from scipy.optimize import minimize_scalar
 class CellStaggeredSpacing:
 
     def __init__(self, num_rows, cell_diameter, air_density=1.225, air_thermal_conductivity=.025, air_dynamic_viscosity = 18.74e-6, air_prandtl = .710, surface_prandtl = 0.7023):
@@ -15,6 +14,11 @@ class CellStaggeredSpacing:
         self.Pr = air_prandtl #air prandtl number, defaulted at 33C value
         self.Pr_s = surface_prandtl #air prandtl number at cell surfaces, defaulted at 60C value
 
+    """
+    ###############################################################################################
+    Helper Methods
+    ###############################################################################################
+    """
     @property
     def N_l(self):
         return self._N_l
@@ -51,7 +55,7 @@ class CellStaggeredSpacing:
 
         self._N_l = newVal
 
-    def s_d(self, s_t, s_l):
+    def _s_d(self, s_t, s_l):
         """
         returns distance between cells in different rows
         :param s_t: transverse pitch (m)
@@ -60,7 +64,7 @@ class CellStaggeredSpacing:
         """
         return math.sqrt(s_t**2+(s_l/2)**2)
 
-    def v_max(self, D, s_t, s_l, inlet_v):
+    def _v_max(self, D, s_t, s_l, inlet_v):
         """
         Calculates v_max given cell diameter, spacing, and inlet velocity
 
@@ -70,7 +74,7 @@ class CellStaggeredSpacing:
         :param inlet_v: inlet velocity, m/s
         :return: max velocity, m/s
         """
-        s_d = self.s_d(s_t, s_l)
+        s_d = self._s_d(s_t, s_l)
 
         if s_d < D:
             raise RuntimeError("Invalid s_d or diameter, ensure geometry has space for air")
@@ -79,7 +83,7 @@ class CellStaggeredSpacing:
         else:
             return s_t * inlet_v / (s_t - D) #max velocity occurs on A1 (transverse) plane
 
-    def reynolds_max(self, v_max):
+    def _reynolds_max(self, v_max):
         """
         returns max reynolds number
         :param v_max: max velocity obtained via self.v_max()
@@ -87,7 +91,7 @@ class CellStaggeredSpacing:
         """
         return self.rho * v_max * self.D / self.mu
 
-    def c1_m_table(self, s_t, s_l, re):
+    def _c1_m_table(self, s_t, s_l, re):
         """
         uses table 7.5 to find c1 and m values. only looks as the staggered portion
         :param s_t: transverse pitch, m
@@ -109,7 +113,7 @@ class CellStaggeredSpacing:
         elif re <= 2e6:
             return 0.022, 0.84
 
-    def p_correction_factor(self, P_t, P_l, re):
+    def _p_correction_factor(self, P_t, P_l, re):
         """
         Uses figure 7.15 to get correction factor, might be a little off unless
         a better way to translate graph to code is found
@@ -136,7 +140,7 @@ class CellStaggeredSpacing:
             else:
                 return .445+.462*ptpl
 
-    def p_friction_factor(self, P_t, re):
+    def _p_friction_factor(self, P_t, re):
         """
         Uses figure 7.15 to get friction factor, might be a little off unless
         a better way to translate graph to code is found
@@ -195,7 +199,7 @@ class CellStaggeredSpacing:
             else:
                 return .2
 
-    def pressure_drop(self, s_t, s_l, v_max, reynolds):
+    def _pressure_drop(self, s_t, s_l, v_max, reynolds):
         """
         Get pressure drop across bank of cells
 
@@ -207,36 +211,79 @@ class CellStaggeredSpacing:
         """
         P_t = s_t / self.D
         P_l = s_l / self.D
-        chi = self.p_correction_factor(P_t, P_l, reynolds)
-        f = self.p_friction_factor(P_t, reynolds)
+        chi = self._p_correction_factor(P_t, P_l, reynolds)
+        f = self._p_friction_factor(P_t, reynolds)
 
         p_drop = self.N_l * chi * f * self.rho * (v_max**2) / 2 #N/m2
         return p_drop*1e-5 #Convert to bars
 
-    def known_v_and_spacing(self, inlet_velocity, s_t, s_l, get_pressure_drop = False):
+    def _re_guess_from_nu_req(self, nu_req, s_t, s_l):
+        """
+        given the required nusselt number, tries to figure out the closest integer reynolds number that'll achieve it
+        uses c1_m_table method
+        used with known_h_and_spacing method
+
+        :param nu_req: required nusselt number
+        :param s_t: transverse pitch
+        :param s_l: longitudinal pitch
+        :return: optimal reynolds number
+        """
+
+        def objective(re):
+            # Reject unphysical Reynolds numbers
+            if re < 100 or re > 2e6:
+                return 1e9
+
+            try:
+                c1, m = self._c1_m_table(s_t, s_l, re)
+            except RuntimeError:
+                return 1e9
+
+            nu = c1 * (re ** m) * (self.Pr ** .36) * ((self.Pr / self.Pr_s) ** .25) * self.c2
+            return abs(nu - nu_req)
+
+        result = minimize_scalar(objective, bounds=(100, 2e6), method='bounded')
+
+        if not result.success:
+            raise RuntimeError("Failed to converge on Reynolds number for given Nu")
+
+        return result.x
+
+    def _v_inlet_from_v_max(self, D, s_t, s_l, v_max):
+        s_d = self._s_d(s_t, s_l)
+        if 2 * (s_d - D) > (s_t - D):
+            return v_max * (s_t - D) / s_t
+        else:
+            return v_max * 2 * (s_d - D) / s_t
+
+    """
+    ###############################################################################################
+    Solver Methods
+    ###############################################################################################
+    """
+
+    def known_v_and_spacing(self, inlet_velocity, s_t, s_l):
         """
         Returns the average convection coefficient or, if requested, the pressure drop
         through a bank of cells given a velocity and spacing
         :param inlet_velocity: velocity at the inlet, m/s
         :param s_t: transverse pitch, m
         :param s_l: longitudinal pitch, m
-        :param get_pressure_drop: if True, returns pressure drop. if False, returns h. optional, defaults False
-        :return: h or pressure drop depending on get_pressure_drop value
+        :return: h and pressure drop
         """
-        v_max = self.v_max(self.D, s_t, s_l, inlet_velocity)
+        v_max = self._v_max(self.D, s_t, s_l, inlet_velocity)
 
-        re_max = self.reynolds_max(v_max)
+        re_max = self._reynolds_max(v_max)
 
-        c1, m = self.c1_m_table(s_t, s_l, re_max)
+        c1, m = self._c1_m_table(s_t, s_l, re_max)
 
         nu_D = c1 * (re_max ** m) * (self.Pr ** .36) * ((self.Pr / self.Pr_s) ** .25) * self.c2
 
         h = nu_D * self.k / self.D
 
-        if get_pressure_drop:
-            return self.pressure_drop(s_t, s_l, v_max, re_max)
+        pressure_drop = self._pressure_drop(s_t, s_l, v_max, re_max)
 
-        return h
+        return h, pressure_drop
 
     def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_h = 0, s_t_increment = .001, s_l_increment = .001):
         """
@@ -250,7 +297,7 @@ class CellStaggeredSpacing:
         :param minimum_h: the minimum h value that should be considered, default to 0
         :param s_t_increment: intervals at which to examine optimal s_t given bounds
         :param s_l_increment: intervals at which to examine optimal s_l given bounds
-        :return:
+        :return:[optimal transverse spacing, optimal longitudinal spacing, maximum h_over_p value]
         """
         s_t_vals = [round(t,10) for t in np.arange(s_t_bounds[0], s_t_bounds[1], s_t_increment)]
         s_l_vals = [round(l,10) for l in np.arange(s_l_bounds[0], s_l_bounds[1], s_l_increment)]
@@ -260,11 +307,9 @@ class CellStaggeredSpacing:
             row = [] #will be filled with h/p values with transverse pitch fixed and longitudinal pitch changing
             for l in s_l_vals:
 
-                h = self.known_v_and_spacing(inlet_velocity, t, l)
+                h, p = self.known_v_and_spacing(inlet_velocity, t, l)
                 if h < minimum_h:
                     h=0
-                p = self.known_v_and_spacing(inlet_velocity, t, l, get_pressure_drop=True)
-
                 row.append(h/p)
 
             h_over_p.append(row)
@@ -283,3 +328,66 @@ class CellStaggeredSpacing:
         print(f"h/p val: {max_h_over_p}")
 
         return optimal_s_t, optimal_s_l, max_h_over_p
+
+    def known_h_and_spacing(self, req_h, s_t, s_l):
+        """
+        returns the required inlet velocity or pressure drop given the required h value and spacing
+        :param req_h: required h value to reach
+        :param s_t: transverse pitch, m
+        :param s_l: longitudinal pitch, m
+        :return: inlet velocity, m/s and pressure drop, bar
+        """
+        nu_req = req_h * self.D / self.k
+        re_req = self._re_guess_from_nu_req(nu_req, s_t, s_l)
+
+        v_max = re_req * self.mu / self.rho / self.D
+        v_inlet = self._v_inlet_from_v_max(self.D, s_t, s_l, v_max)
+
+        pressure_drop = self._pressure_drop(s_t, s_l, v_max, re_req)
+
+        return float(v_inlet), float(pressure_drop)
+
+    def known_h_optimize_spacing(self, req_h, s_t_bounds, s_l_bounds, s_t_increment = .001, s_l_increment = .001):
+        """
+        given a fixed h value and transverse and longitudinal bounds, determines the optimal spacing to hit that h value
+        with a minimal velocity and pressure drop (aka minimizing v * p)
+        this is because this will minimize necessary fan power as
+
+        Pumping Power is proportional to flow rate * pressure
+        and flow rate is proportional to the inlet velocity
+
+        :param req_h: h value that must be hit
+        :param s_t_bounds: an array characterizing exclusive transverse pitch bounds as [min, max], m
+        :param s_l_bounds: an array characterizing exclusive longitudinal pitch bounds as [min, max], m
+        :param s_t_increment: intervals at which to examine optimal s_t given bounds
+        :param s_l_increment: intervals at which to examine optimal s_l given bounds
+        :return: [optimal transverse spacing, optimal longitudinal spacing, minimum v_times_p value]
+        """
+        s_t_vals = [round(t, 10) for t in np.arange(s_t_bounds[0], s_t_bounds[1], s_t_increment)]
+        s_l_vals = [round(l, 10) for l in np.arange(s_l_bounds[0], s_l_bounds[1], s_l_increment)]
+
+        v_times_p = []
+        for t in s_t_vals:
+            row = []  # will be filled with h/p values with transverse pitch fixed and longitudinal pitch changing
+            for l in s_l_vals:
+
+                v, p = self.known_h_and_spacing(req_h, t, l)
+
+                row.append(v*p)
+
+            v_times_p.append(row)
+
+        v_times_p = np.array(v_times_p)
+        min_v_times_p = np.min(v_times_p)
+        min_location_flattened = np.argmin(v_times_p)
+        optimal_s_t_location, optimal_s_l_location = np.unravel_index(min_location_flattened, v_times_p.shape)
+
+        optimal_s_t = s_t_vals[optimal_s_t_location]
+        optimal_s_l = s_l_vals[optimal_s_l_location]
+
+        print(f"Transverse pitch: {optimal_s_t}")
+        print(f"Longitudinal pitch: {optimal_s_l}")
+        print(f"v*p val: {min_v_times_p}")
+
+        return optimal_s_t, optimal_s_l, min_v_times_p
+
