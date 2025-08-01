@@ -1,8 +1,11 @@
+#By Aadi Vasa
+#aadivtx@gmail.com
 import math
 from scipy.integrate import solve_ivp
 class LumpedCapacitanceModel:
 
-    def __init__(self, total_current, num_series, num_parallel, cell_diameter, cell_height, cell_weight, cell_resistance, cell_specific_heat, ambient_temp = 33):
+    def __init__(self, total_current, num_series, num_parallel, cell_diameter, cell_height, cell_weight, cell_resistance, cell_specific_heat,
+                  ambient_temp = 33, air_temp_out = 33, air_density = 1.225, air_specific_heat = 1005):
         """
         Initializes with battery pack or cell properties, as well as expected ambient temperature
 
@@ -15,6 +18,9 @@ class LumpedCapacitanceModel:
         :param cell_resistance: cell typical impedance, ohms
         :param cell_specific_heat: cell specific heat capacity, J/kgC
         :param ambient_temp: ambient temperature (usually 33C), C
+        :param temp_out: temperature of air on outlet, C
+        :param air_density: density of air, kg/m3
+        :param air_specific_heat: specific heat of air, J/kgC
         """
         self.current = total_current
 
@@ -30,7 +36,11 @@ class LumpedCapacitanceModel:
         self.lumped_resistance = self.equivalent_resistance(num_series, num_parallel, cell_resistance)
 
         self.cell_specific_heat = cell_specific_heat
+
         self.ambient_temp = ambient_temp
+        self.air_temp_out = air_temp_out
+        self.air_density = air_density
+        self.air_specific_heat = air_specific_heat
 
     def equivalent_resistance(self, num_series, num_parallel, cell_resistance):
         """
@@ -64,7 +74,7 @@ class LumpedCapacitanceModel:
         :param temp: previous temperature
         :return: dT/dt
         """
-        dTdt = (self.current ** 2) * self.lumped_resistance + self.__convection_coefficient * self.lumped_surface_area * (self.ambient_temp - temp)
+        dTdt = (self.current ** 2) * self.lumped_resistance + self.__convection_coefficient * self.lumped_surface_area * ((self.ambient_temp+self.air_temp_out)/2 - temp)
         dTdt /= (self.lumped_weight * self.cell_specific_heat)
         return dTdt
 
@@ -75,7 +85,15 @@ class LumpedCapacitanceModel:
         :param maximum_cell_temperature: max temperature you want the cells to reach, 60C for rules, 80C for cell limit
         :return: minimum average h value
         """
-        return (self.current ** 2) * self.lumped_resistance / self.lumped_surface_area / (maximum_cell_temperature - self.ambient_temp)
+        return (self.current ** 2) * self.lumped_resistance / self.lumped_surface_area / (maximum_cell_temperature - (self.ambient_temp+self.air_temp_out)/2)
+
+    def required_volumetric_flow_rate(self):
+        """
+        Knowing the worst desired temperature rise of air from initialization, calculates what the minimum volumetric flow rate is in m3/s
+        """
+        if self.air_temp_out == self.ambient_temp:
+            raise RuntimeError("Outlet air temperature cannot equal ambient temperature")
+        return (self.current ** 2) * self.lumped_resistance / self.air_specific_heat / (self.air_temp_out - self.ambient_temp) / self.air_density
 
     @staticmethod
     def biot_number(characteristic_length, convection_coefficient, thermal_conductivity=None,

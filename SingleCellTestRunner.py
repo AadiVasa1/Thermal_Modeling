@@ -1,3 +1,5 @@
+#By Aadi Vasa
+#aadivtx@gmail.com
 from SingleCellTest import SingleCellSimulation
 import matplotlib.pyplot as plt, numpy as np
 
