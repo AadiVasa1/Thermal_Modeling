@@ -90,6 +90,7 @@ class LumpedCapacitanceModel:
     def required_volumetric_flow_rate(self):
         """
         Knowing the worst desired temperature rise of air from initialization, calculates what the minimum volumetric flow rate is in m3/s
+        Overestimates the flow rate you'll need though as its optimal for steady state, something we usually don't reach
         """
         if self.air_temp_out == self.ambient_temp:
             raise RuntimeError("Outlet air temperature cannot equal ambient temperature")

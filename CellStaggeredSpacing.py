@@ -350,44 +350,44 @@ class CellStaggeredSpacing:
     def known_h_optimize_spacing(self, req_h, s_t_bounds, s_l_bounds, s_t_increment = .001, s_l_increment = .001):
         """
         given a fixed h value and transverse and longitudinal bounds, determines the optimal spacing to hit that h value
-        with a minimal velocity and pressure drop (aka minimizing v * p)
+        with a minimal flow rate and pressure drop (aka minimizing s_t * v * p)
         this is because this will minimize necessary fan power as
 
         Pumping Power is proportional to flow rate * pressure
-        and flow rate is proportional to the inlet velocity
+        and flow rate is proportional to the inlet velocity * transverse pitch
 
         :param req_h: h value that must be hit
         :param s_t_bounds: an array characterizing exclusive transverse pitch bounds as [min, max], m
         :param s_l_bounds: an array characterizing exclusive longitudinal pitch bounds as [min, max], m
         :param s_t_increment: intervals at which to examine optimal s_t given bounds
         :param s_l_increment: intervals at which to examine optimal s_l given bounds
-        :return: [optimal transverse spacing, optimal longitudinal spacing, minimum v_times_p value]
+        :return: [optimal transverse spacing, optimal longitudinal spacing, minimum q_times_p value]
         """
         s_t_vals = [round(t, 10) for t in np.arange(s_t_bounds[0], s_t_bounds[1], s_t_increment)]
         s_l_vals = [round(l, 10) for l in np.arange(s_l_bounds[0], s_l_bounds[1], s_l_increment)]
 
-        v_times_p = []
+        q_times_p = []
         for t in s_t_vals:
             row = []  # will be filled with h/p values with transverse pitch fixed and longitudinal pitch changing
             for l in s_l_vals:
 
                 v, p = self.known_h_and_spacing(req_h, t, l)
 
-                row.append(v*p)
+                row.append(t*v*p)
 
-            v_times_p.append(row)
+            q_times_p.append(row)
 
-        v_times_p = np.array(v_times_p)
-        min_v_times_p = np.min(v_times_p)
-        min_location_flattened = np.argmin(v_times_p)
-        optimal_s_t_location, optimal_s_l_location = np.unravel_index(min_location_flattened, v_times_p.shape)
+        q_times_p = np.array(q_times_p)
+        min_q_times_p = np.min(q_times_p)
+        min_location_flattened = np.argmin(q_times_p)
+        optimal_s_t_location, optimal_s_l_location = np.unravel_index(min_location_flattened, q_times_p.shape)
 
         optimal_s_t = s_t_vals[optimal_s_t_location]
         optimal_s_l = s_l_vals[optimal_s_l_location]
 
         print(f"Transverse pitch: {optimal_s_t}")
         print(f"Longitudinal pitch: {optimal_s_l}")
-        print(f"v*p val: {min_v_times_p}")
+        print(f"q*p val: {min_q_times_p}")
 
-        return optimal_s_t, optimal_s_l, min_v_times_p
+        return optimal_s_t, optimal_s_l, min_q_times_p
 
