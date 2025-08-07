@@ -2,17 +2,17 @@ import CellStaggeredSpacing as cs
 import matplotlib.pyplot as plt
 import numpy as np
 
-c = cs.CellStaggeredSpacing(24, 18.6e-3)
+c = cs.CellStaggeredSpacing(24, 4,18.6e-3, 65.2e-3)
 
 
 ST=[] #Transverse Pitch
 SL=[] #Longitudinal Pitch
 x = 0.019
-while x < 0.025:
+while x < 0.04:
     ST.append(x)
     x = x + 0.001
 x = 0.0174
-while x < .025:
+while x < .04:
     SL.append(x)
     x = x + 0.001
 
@@ -28,6 +28,8 @@ for j in SL:  # Outer loop for rows
         # row.append(v)  # Append an initial value (e.g., 0) to the row
 
         hh, p = c.known_v_and_spacing(2.189, i, j)
+        q = c.heat_transfer_rate(2.189, h, i)
+
         row.append(hh/p)
     h.append(row)  # Append the filled row to the main array
 #print(h)
@@ -44,28 +46,50 @@ ax.set_title('Cell Spacing vs Convection Coefficient')
 
 plt.show()
 
-# for i in range(15):
-#     c.known_v_optimize_spacing(i+1,[.019, .025], [.0174, .025], 56)
-#     print(f"Velocity: {i}")
-#     print()
+q_req = .017 * ((70/4)**2) * 24 * 4
 
-# for i in range(99):
-#     print(i*5)
-#     c.known_h_optimize_spacing(5*(i+1), [.022, .07], [.022, .07])
-#     print()
-
-t, l, _ = c.known_v_optimize_spacing(2.819, [.02, .025], [.0174, .025], 62.11, .0001, .0001)
-print(c.known_v_and_spacing(2.819, t, l))
-print(c._v_max(.0186, .02, .0174, 2.819))
+t, l, inlet_v, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, .0001, .0001, .1)
+h, p = c.known_v_and_spacing(inlet_v, t, l)
 
 
-# c.known_h_optimize_spacing(56,[.02, .03], [.0174, .03], .0001, .0001)
-# v, p = c.known_h_and_spacing(56, .020, .0174)
+
+print()
+print(f"h: {h}")
+print(f"p: {p}")
+print(f"max velocity: {c._v_max(.0186, .02, .0174, inlet_v)}")
+print()
+q = c.heat_transfer_rate(inlet_v, h, t)
+print(f"q dissipated: {q}")
+print(f"q needed: {q_req}")
+
+
+
+# inlet_v = 2.75
+# print(f"v: {inlet_v}")
+# print()
+
+# t, l, _ = c.known_v_optimize_spacing(inlet_v, [.02, .025], [.0174, .025], q_req, .0001, .0001)
+# h, p = c.known_v_and_spacing(inlet_v, t, l)
+# print()
+# print(f"h: {h}")
+# print(f"p: {p}")
+# print(f"max velocity: {c._v_max(.0186, .02, .0174, inlet_v)}")
+# print()
+#
+# q = c.heat_transfer_rate(inlet_v, h, t)
+# print(f"q dissipated: {q}")
+# print(f"q needed: {q_req}")
+
+
+
+# c.known_h_optimize_spacing(134,[.02, .03], [.0174, .03], .001, .001)
+# v, p = c.known_h_and_spacing(134, .020, .0174)
 # print(f"velocity: {v}")
 # print(f"pressure drop: {p}")
 # print(c.known_v_and_spacing(.2, .02, .0174))
 # print(c._v_max(.0186, .02, .0174, v))
 # print()
-# print()
+# q = c.heat_transfer_rate(v, 134, .025)
+# print(f"q dissipated: {q}")
+# print(f"q needed: {.017 * ((70/4)**2) * 24 * 4}")
 
-# c.known_v_optimize_spacing(.2, [.02, .0225], [.0174, .0225], 56)
