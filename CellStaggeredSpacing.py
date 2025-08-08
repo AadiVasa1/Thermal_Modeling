@@ -3,7 +3,7 @@ import math
 from scipy.optimize import minimize_scalar
 class CellStaggeredSpacing:
 
-    def __init__(self, num_rows, cells_per_row, cell_diameter, cell_height, air_density=1.225, air_thermal_conductivity=.025, air_specific_heat_capacity = 1005, air_dynamic_viscosity = 18.74e-6, air_prandtl = .710, surface_prandtl = 0.7023):
+    def __init__(self, num_rows, cells_per_row, cell_diameter, cell_height, air_density=1.09, air_thermal_conductivity=.025, air_specific_heat_capacity = 1007, air_dynamic_viscosity = 19.35e-6, air_prandtl = .705, surface_prandtl = 0.703):
         self.N_l = num_rows #number of rows of cells/how many cells long from inlet to outlet
         self.N_t = cells_per_row #number of cells per row
         self.N = self.N_t * self.N_l #total number of cells in the segment
@@ -262,7 +262,6 @@ class CellStaggeredSpacing:
             return v_max * 2 * (s_d - D) / s_t
 
     def heat_transfer_rate(self, inlet_velocity, h, s_t, cell_temp = 60, ambient_temp = 33):
-        air_specific_heat = 1005
         outlet_temp = (cell_temp-ambient_temp) * math.exp(-1 * math.pi * self.D * self.N * h / (self.rho * inlet_velocity * self.N_t * s_t * self.c_p))
         outlet_temp -= cell_temp
         outlet_temp *= -1
@@ -270,7 +269,7 @@ class CellStaggeredSpacing:
 
         lmtd = (cell_temp - ambient_temp) - (cell_temp - outlet_temp)
         lmtd /= math.log((cell_temp - ambient_temp) / (cell_temp - outlet_temp))
-
+        # print(lmtd)
         return self.N * h * math.pi * self.D * lmtd * self.l
 
     """
