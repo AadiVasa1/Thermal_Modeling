@@ -3,9 +3,9 @@
 import LumpedCapacitance as lc
 import matplotlib.pyplot as plt
 
-s = lc.LumpedCapacitanceModel(70, 24, 4, .0186, .0652, .047, .017, 790, 33, 43)
+s = lc.LumpedCapacitanceModel(70, 24, 4, .0186, .0652, .047, .017, 790, 33, 60)
 
-t, temp = s.temperature_over_time(avg_convection_coefficient = 101, runtime = 3600)
+t, temp = s.temperature_over_time(avg_convection_coefficient = 99, runtime = 3600)
 
 print(f"h: {s.required_convection_coefficient(60)}")
 # print(s.biot_number(.0186, 101, 5.1))

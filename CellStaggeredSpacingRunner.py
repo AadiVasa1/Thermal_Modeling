@@ -2,17 +2,17 @@ import CellStaggeredSpacing as cs
 import matplotlib.pyplot as plt
 import numpy as np
 
-c = cs.CellStaggeredSpacing(24, 4,18.6e-3, 65.2e-3)
+c = cs.CellStaggeredSpacing(26, 5,18.6e-3, 65.2e-3)
 
 
 # ST=[] #Transverse Pitch
 # SL=[] #Longitudinal Pitch
 # x = 0.019
-# while x < 0.04:
+# while x < 0.022:
 #     ST.append(x)
 #     x = x + 0.001
 # x = 0.0174
-# while x < .04:
+# while x < .02:
 #     SL.append(x)
 #     x = x + 0.001
 
@@ -27,8 +27,8 @@ c = cs.CellStaggeredSpacing(24, 4,18.6e-3, 65.2e-3)
 #         # v, p = c.known_h_and_spacing(73, i, j)
 #         # row.append(v)  # Append an initial value (e.g., 0) to the row
 
-#         hh, p = c.known_v_and_spacing(2.189, i, j)
-#         q = c.heat_transfer_rate(2.189, h, i)
+#         hh, p = c.known_v_and_spacing(1.3, i, j)
+#         # q = c.heat_transfer_rate(2.189, h, i)
 
 #         row.append(hh/p)
 #     h.append(row)  # Append the filled row to the main array
@@ -37,7 +37,7 @@ c = cs.CellStaggeredSpacing(24, 4,18.6e-3, 65.2e-3)
 
 # surf = ax.plot_surface(X, Y, Z,  cmap = plt.cm.cividis)
 
-# # ax.scatter(.028,.022,22692, color = "red", s=50)
+# ax.scatter(.028,.022,22692, color = "red", s=50)
 
 # ax.set_xlabel('Transverse Pitch (m)', labelpad=20)
 # ax.set_ylabel('Longitudinal Pitch (m)', labelpad=20)
@@ -46,23 +46,27 @@ c = cs.CellStaggeredSpacing(24, 4,18.6e-3, 65.2e-3)
 
 # plt.show()
 
-q_req = .017 * ((70/4)**2) * 24 * 4
-
-t, l, inlet_v, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, .0001, .0001, .1)
-h, p = c.known_v_and_spacing(inlet_v, t, l)
-
-
-
-print()
-print(f"h: {h}")
-print(f"p: {p}")
+q_req = .017 * ((70/5)**2) * 26 * 5
+t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, 500, .0001, .0001, .1, 2.5)
 print(f"max velocity: {c._v_max(.0186, t, l, inlet_v)}")
 print()
 q = c.heat_transfer_rate(inlet_v, h, t)
 print(f"q dissipated: {q}")
 print(f"q needed: {q_req}")
 
+# h, p = c.known_v_and_spacing(inlet_v, t, .0174)
 
+# h, p = c.known_v_and_spacing(1.3, .0225, .01725)
+# print()
+# print(f"h: {h}")
+# print(f"p: {p}")
+# q = c.heat_transfer_rate(1.3, h, .0225)
+# print(f"q dissipated: {q}")
+# print(f"q needed: {q_req}")
+
+# print()
+# print(f"h: {h}")
+# print(f"p: {p}")
 
 # inlet_v = 2.75
 # print(f"v: {inlet_v}")

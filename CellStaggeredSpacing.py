@@ -301,7 +301,7 @@ class CellStaggeredSpacing:
 
         return float(h), float(pressure_drop)
 
-    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, s_t_increment = .001, s_l_increment = .001, should_print = True):
+    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, target_dp = None, s_t_increment = .001, s_l_increment = .001, target_dp_margin = 2.5, should_print = True):
         """
         given an inlet velocity, figures out an optimal spacing that maximizes h / pressure drop
         also can give a minimum heat transfer rate so that anything below gets filtered out
@@ -311,12 +311,16 @@ class CellStaggeredSpacing:
         :param s_t_bounds: an array characterizing transverse pitch bounds as [min, max], m
         :param s_l_bounds: an array characterizing longitudinal pitch bounds as [min, max], m
         :param minimum_heat_transfer: the minimum heat transfer rate that should be considered, default to 0
+        :param target_dp: desired pressure drop to target through the cells
         :param s_t_increment: intervals at which to examine optimal s_t given bounds
         :param s_l_increment: intervals at which to examine optimal s_l given bounds
+        :param target_dp_margin: allowable tolerance around desired pressure drop, %
         :return:[optimal transverse spacing, optimal longitudinal spacing, maximum h_over_p value]
         """
         s_t_vals = [round(t,10) for t in np.arange(s_t_bounds[0], s_t_bounds[1], s_t_increment)]
+        s_t_vals.append(s_t_bounds[1])
         s_l_vals = [round(l,10) for l in np.arange(s_l_bounds[0], s_l_bounds[1], s_l_increment)]
+        s_l_vals.append(s_l_vals[1])
 
         h_over_p = []
         for t in s_t_vals:
@@ -326,7 +330,10 @@ class CellStaggeredSpacing:
                 h, p = self.known_v_and_spacing(inlet_velocity, t, l)
                 q = self.heat_transfer_rate(inlet_velocity, h, t)
                 if q < minimum_heat_transfer:
-                    h=0
+                    h = 0
+                elif target_dp is not None:
+                    if p > (target_dp * (1+target_dp_margin/100)) or p < (target_dp * (1-target_dp_margin/100)):
+                        h = 0
                 row.append(h/p)
 
             h_over_p.append(row)
@@ -346,7 +353,7 @@ class CellStaggeredSpacing:
 
         return optimal_s_t, optimal_s_l, max_h_over_p
 
-    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, s_t_increment = .001, s_l_increment = .001, v_increment = .1, should_print = True):
+    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, target_dp = None, s_t_increment = .001, s_l_increment = .001, v_increment = .1, target_dp_margin = 2.5, should_print = True):
         """
            given bounds for inlet velocity, figures out optimal spacing that maximizes h / (pressure drop * v * s_t)
            as this correlates to cooling effectiveness / fan power
@@ -357,9 +364,11 @@ class CellStaggeredSpacing:
            :param s_t_bounds: an array characterizing transverse pitch bounds as [min, max], m
            :param s_l_bounds: an array characterizing longitudinal pitch bounds as [min, max], m
            :param minimum_heat_transfer: the minimum heat transfer rate that should be considered, default to 0
+           :param target_dp: desired pressure drop to target through the cells
            :param s_t_increment: intervals at which to examine optimal s_t given bounds
            :param s_l_increment: intervals at which to examine optimal s_l given bounds
            :param v_increment: intervals at which to examine optimal inlet_v given bounds
+           :param target_dp_margin: allowable tolerance around desired pressure drop, %
            :return:[optimal transverse spacing, optimal longitudinal spacing, optimal inlet velocity, maximum h_over_p value]
            """
         v_vals = [round(t, 10) for t in np.arange(inlet_v_bounds[0], inlet_v_bounds[1], v_increment)]
@@ -368,7 +377,7 @@ class CellStaggeredSpacing:
         optimal_spacings = []
         for v in v_vals:
             try:
-                s_t, s_l, h_over_p = self.known_v_optimize_spacing(v, s_t_bounds, s_l_bounds, minimum_heat_transfer, s_t_increment, s_l_increment, False)
+                s_t, s_l, h_over_p = self.known_v_optimize_spacing(v, s_t_bounds, s_l_bounds, minimum_heat_transfer, target_dp, s_t_increment, s_l_increment, target_dp_margin, False)
             except RuntimeError:
                 s_t = 1e9
                 s_l = 1e9
@@ -384,13 +393,17 @@ class CellStaggeredSpacing:
         optimal_s_l = optimal_spacings[max_location_index][1]
         optimal_v = v_vals[max_location_index]
 
+        optimal_h, optimal_pressure_drop = self.known_v_and_spacing(optimal_v, optimal_s_t, optimal_s_l)
+
         if should_print:
             print(f"Transverse pitch: {optimal_s_t}")
             print(f"Longitudinal pitch: {optimal_s_l}")
             print(f"inlet_velocity: {optimal_v}")
+            print(f"h value: {optimal_h}")
+            print(f"pressure drop: : {optimal_pressure_drop}")
             print(f"h/vp val: {max_h_over_vp}")
 
-        return optimal_s_t, optimal_s_l, optimal_v, max_h_over_vp
+        return optimal_s_t, optimal_s_l, optimal_v, optimal_h, optimal_pressure_drop, max_h_over_vp
 
     """
     ###############################################################################################
