@@ -2,17 +2,17 @@ import CellStaggeredSpacing as cs
 import matplotlib.pyplot as plt
 import numpy as np
 
-c = cs.CellStaggeredSpacing(26, 5,18.6e-3, 65.2e-3)
+c = cs.CellStaggeredSpacing(13, 5,18.6e-3, 2*65.2e-3)
 
 
 # ST=[] #Transverse Pitch
 # SL=[] #Longitudinal Pitch
 # x = 0.019
-# while x < 0.022:
+# while x < 0.04:
 #     ST.append(x)
 #     x = x + 0.001
 # x = 0.0174
-# while x < .02:
+# while x < .04:
 #     SL.append(x)
 #     x = x + 0.001
 
@@ -37,7 +37,7 @@ c = cs.CellStaggeredSpacing(26, 5,18.6e-3, 65.2e-3)
 
 # surf = ax.plot_surface(X, Y, Z,  cmap = plt.cm.cividis)
 
-# ax.scatter(.028,.022,22692, color = "red", s=50)
+# # ax.scatter(.028,.022,22692, color = "red", s=50)
 
 # ax.set_xlabel('Transverse Pitch (m)', labelpad=20)
 # ax.set_ylabel('Longitudinal Pitch (m)', labelpad=20)
@@ -46,8 +46,8 @@ c = cs.CellStaggeredSpacing(26, 5,18.6e-3, 65.2e-3)
 
 # plt.show()
 
-q_req = .017 * ((70/5)**2) * 26 * 5
-t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, 500, .0001, .0001, .1, 2.5)
+q_req = .017 * ((60/5)**2) * 26 * 5
+t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, 300, .0001, .0001, .1, 2.5)
 print(f"max velocity: {c._v_max(.0186, t, l, inlet_v)}")
 print()
 q = c.heat_transfer_rate(inlet_v, h, t)

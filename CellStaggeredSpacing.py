@@ -398,9 +398,9 @@ class CellStaggeredSpacing:
         if should_print:
             print(f"Transverse pitch: {optimal_s_t}")
             print(f"Longitudinal pitch: {optimal_s_l}")
-            print(f"inlet_velocity: {optimal_v}")
+            print(f"Inlet Velocity: {optimal_v}")
             print(f"h value: {optimal_h}")
-            print(f"pressure drop: : {optimal_pressure_drop}")
+            print(f"Pressure Drop: : {optimal_pressure_drop}")
             print(f"h/vp val: {max_h_over_vp}")
 
         return optimal_s_t, optimal_s_l, optimal_v, optimal_h, optimal_pressure_drop, max_h_over_vp
