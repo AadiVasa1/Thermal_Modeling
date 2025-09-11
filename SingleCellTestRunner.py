@@ -8,7 +8,7 @@ s.cell_properties_setter(mass = .070, diameter = 21.55/1000, height = 70.15/1000
 s.test_conditions_setter(current = 70/3, time = 400, temperature_sensor_location = -1)
 s.test_data_grabber_top_and_middle("Cold_Plate_Test_Data_Filtered.xlsx")
 
-s.solver_setter(50)
+s.solver_setter(100)
 print(s.num_nodes)
 
 # k_estimate, c_estimate = s.thermal_prop_guess(10, 1000)
@@ -48,8 +48,8 @@ plt.ylabel("Temperature (C)")
 plt.show(block=False)
 
 plt.figure()
-# plt.plot(s.time_measured, s.temp_measured, label = "Actual Data, Top")
-# plt.plot(s.time_measured, s.temp_measured2, label = "Actual Data, Middle")
+plt.plot(s.time_measured, s.temp_measured, label = "Actual Data, Top")
+plt.plot(s.time_measured, s.temp_measured2, label = "Actual Data, Middle")
 plt.plot(time_v, temp_c[:,0], label = "Sim, Top")
 plt.plot(time_v, temp_c[:, s.num_nodes//2], label = "Sim, Middle")
 plt.xlabel("Time (s)")

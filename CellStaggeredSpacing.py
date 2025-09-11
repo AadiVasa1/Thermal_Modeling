@@ -3,10 +3,11 @@ import math
 from scipy.optimize import minimize_scalar
 class CellStaggeredSpacing:
 
-    def __init__(self, num_rows, cells_per_row, cell_diameter, cell_height, air_density=1.09, air_thermal_conductivity=.025, air_specific_heat_capacity = 1007, air_dynamic_viscosity = 19.35e-6, air_prandtl = .705, surface_prandtl = 0.703):
+    def __init__(self, num_rows, cells_per_row, cell_stack, cell_diameter, cell_height, air_density=1.09, air_thermal_conductivity=.025, air_specific_heat_capacity = 1007, air_dynamic_viscosity = 19.35e-6, air_prandtl = .705, surface_prandtl = 0.703):
         self.N_l = num_rows #number of rows of cells/how many cells long from inlet to outlet
         self.N_t = cells_per_row #number of cells per row
-        self.N = self.N_t * self.N_l #total number of cells in the segment
+        self.cell_stack = cell_stack #number of cells stacked vertically
+        self.N = self.N_t * self.N_l #total number of cells in the segment (not including stackup)
 
         self.D = cell_diameter #m, cell diameter
         self.l = cell_height #m, cell height
@@ -270,7 +271,7 @@ class CellStaggeredSpacing:
         lmtd = (cell_temp - ambient_temp) - (cell_temp - outlet_temp)
         lmtd /= math.log((cell_temp - ambient_temp) / (cell_temp - outlet_temp))
         # print(lmtd)
-        return self.N * h * math.pi * self.D * lmtd * self.l
+        return self.N * self.cell_stack * h * math.pi * self.D * lmtd * self.l
 
     """
     ###############################################################################################
@@ -301,7 +302,7 @@ class CellStaggeredSpacing:
 
         return float(h), float(pressure_drop)
 
-    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, target_dp = None, s_t_increment = .001, s_l_increment = .001, target_dp_margin = 2.5, should_print = True):
+    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 60, target_dp = None, s_t_increment = .001, s_l_increment = .001, target_dp_margin = 2.5, should_print = True):
         """
         given an inlet velocity, figures out an optimal spacing that maximizes h / pressure drop
         also can give a minimum heat transfer rate so that anything below gets filtered out
@@ -329,7 +330,11 @@ class CellStaggeredSpacing:
 
                 h, p = self.known_v_and_spacing(inlet_velocity, t, l)
                 q = self.heat_transfer_rate(inlet_velocity, h, t)
+                q_per_cell = minimum_heat_transfer/(self.N * self.cell_stack)
+                last_cell_dissipation = self.last_cell_test(t,inlet_velocity, q_per_cell, h, cell_temp, ambient_temp)
                 if q < minimum_heat_transfer:
+                    h = 0
+                elif last_cell_dissipation < q_per_cell:
                     h = 0
                 elif target_dp is not None:
                     if p > (target_dp * (1+target_dp_margin/100)) or p < (target_dp * (1-target_dp_margin/100)):
@@ -353,7 +358,7 @@ class CellStaggeredSpacing:
 
         return optimal_s_t, optimal_s_l, max_h_over_p
 
-    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, target_dp = None, s_t_increment = .001, s_l_increment = .001, v_increment = .1, target_dp_margin = 2.5, should_print = True):
+    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 60, target_dp = None, s_t_increment = .001, s_l_increment = .001, v_increment = .1, target_dp_margin = 2.5, should_print = True):
         """
            given bounds for inlet velocity, figures out optimal spacing that maximizes h / (pressure drop * v * s_t)
            as this correlates to cooling effectiveness / fan power
@@ -377,7 +382,7 @@ class CellStaggeredSpacing:
         optimal_spacings = []
         for v in v_vals:
             try:
-                s_t, s_l, h_over_p = self.known_v_optimize_spacing(v, s_t_bounds, s_l_bounds, minimum_heat_transfer, target_dp, s_t_increment, s_l_increment, target_dp_margin, False)
+                s_t, s_l, h_over_p = self.known_v_optimize_spacing(v, s_t_bounds, s_l_bounds, minimum_heat_transfer, cell_temp, ambient_temp, target_dp, s_t_increment, s_l_increment, target_dp_margin, False)
             except RuntimeError:
                 s_t = 1e9
                 s_l = 1e9
@@ -405,6 +410,19 @@ class CellStaggeredSpacing:
 
         return optimal_s_t, optimal_s_l, optimal_v, optimal_h, optimal_pressure_drop, max_h_over_vp
 
+    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33):
+        air_temp = ambient_temp
+        mass_flow_rate = self.rho * inlet_v * self.N_t * s_t * self.cell_stack * self.l
+        air_heat_capacity = mass_flow_rate * self.c_p
+        cell_area = self.D * math.pi * self.l
+        q_removed = 0
+        for _ in range(self.N_l):
+            q_removed = h * cell_area * (cell_temp - air_temp)
+            q_row = q_removed * self.N_t * self.cell_stack
+            air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
+        
+        return q_removed
+        
     """
     ###############################################################################################
     Garbage Solver Methods
