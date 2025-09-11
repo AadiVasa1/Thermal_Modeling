@@ -273,6 +273,28 @@ class CellStaggeredSpacing:
         # print(lmtd)
         return self.N * self.cell_stack * h * math.pi * self.D * lmtd * self.l
 
+    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33):
+            """
+            determines if the last cell in the segment stays adaquetly cool enough by ensuring all heat is dissipated
+
+            :param s_t: transverse pitch, m
+            :param inlet_v: inlet velocity, m/s
+            :param q_per_cell: heat gen per individual cell
+            :param: cell_temp: max cell temperature, C, defaults to 60
+            :param: ambient air temperature, C, defaults to 33
+            """
+            air_temp = ambient_temp
+            mass_flow_rate = self.rho * inlet_v * self.N_t * s_t * self.cell_stack * self.l
+            air_heat_capacity = mass_flow_rate * self.c_p
+            cell_area = self.D * math.pi * self.l
+            q_removed = 0
+            for _ in range(self.N_l):
+                q_removed = h * cell_area * (cell_temp - air_temp)
+                q_row = q_removed * self.N_t * self.cell_stack
+                air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
+            
+            return q_removed
+    
     """
     ###############################################################################################
     Solver Methods
@@ -409,19 +431,6 @@ class CellStaggeredSpacing:
             print(f"h/vp val: {max_h_over_vp}")
 
         return optimal_s_t, optimal_s_l, optimal_v, optimal_h, optimal_pressure_drop, max_h_over_vp
-
-    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33):
-        air_temp = ambient_temp
-        mass_flow_rate = self.rho * inlet_v * self.N_t * s_t * self.cell_stack * self.l
-        air_heat_capacity = mass_flow_rate * self.c_p
-        cell_area = self.D * math.pi * self.l
-        q_removed = 0
-        for _ in range(self.N_l):
-            q_removed = h * cell_area * (cell_temp - air_temp)
-            q_row = q_removed * self.N_t * self.cell_stack
-            air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
-        
-        return q_removed
         
     """
     ###############################################################################################
