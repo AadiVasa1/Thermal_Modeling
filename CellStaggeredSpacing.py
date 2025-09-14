@@ -279,9 +279,11 @@ class CellStaggeredSpacing:
             return q_dissipated, outlet_temp
         return q_dissipated
 
-    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33):
+    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33, q_temp_graph_by_row = False):
             """
             determines if the last cell in the segment stays adaquetly cool enough by ensuring all heat is dissipated
+
+            if requested, will return q dissipated and outlet temperature per cell by row number by enabling q_temp_by_row
 
             :param s_t: transverse pitch, m
             :param inlet_v: inlet velocity, m/s
@@ -289,6 +291,8 @@ class CellStaggeredSpacing:
             :param: cell_temp: max cell temperature, C, defaults to 60
             :param: ambient air temperature, C, defaults to 33
             """
+            q_by_row = []
+            temp_by_row = []
             air_temp = ambient_temp
             mass_flow_rate = self.rho * inlet_v * self.N_t * s_t * self.cell_stack * self.l
             air_heat_capacity = mass_flow_rate * self.c_p
@@ -300,8 +304,14 @@ class CellStaggeredSpacing:
                 q_row = q_removed * self.N_t * self.cell_stack
                 q_tot += q_row
                 air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
+                
+                if q_temp_graph_by_row:
+                    q_by_row.append(q_row)
+                    temp_by_row.append(air_temp)
             # print(f"outlet air temp: {air_temp}")
             # print(f"q dissipated {q_tot}")
+            if q_temp_graph_by_row:
+                return q_removed, q_by_row, temp_by_row
             return q_removed
     
     """
