@@ -262,7 +262,10 @@ class CellStaggeredSpacing:
         else:
             return v_max * 2 * (s_d - D) / s_t
 
-    def heat_transfer_rate(self, inlet_velocity, h, s_t, cell_temp = 60, ambient_temp = 33):
+    def heat_transfer_rate(self, inlet_velocity, h, s_t, cell_temp = 60, ambient_temp = 33, outlet_temp_report = False):
+        """
+        determines the total heat dissipated from the cell array, as well as the outlet temperature if requested
+        """
         outlet_temp = (cell_temp-ambient_temp) * math.exp(-1 * math.pi * self.D * self.N * h / (self.rho * inlet_velocity * self.N_t * s_t * self.c_p))
         outlet_temp -= cell_temp
         outlet_temp *= -1
@@ -271,7 +274,10 @@ class CellStaggeredSpacing:
         lmtd = (cell_temp - ambient_temp) - (cell_temp - outlet_temp)
         lmtd /= math.log((cell_temp - ambient_temp) / (cell_temp - outlet_temp))
         # print(lmtd)
-        return self.N * self.cell_stack * h * math.pi * self.D * lmtd * self.l
+        q_dissipated = self.N * self.cell_stack * h * math.pi * self.D * lmtd * self.l
+        if outlet_temp_report:
+            return q_dissipated, outlet_temp
+        return q_dissipated
 
     def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33):
             """
@@ -288,11 +294,14 @@ class CellStaggeredSpacing:
             air_heat_capacity = mass_flow_rate * self.c_p
             cell_area = self.D * math.pi * self.l
             q_removed = 0
+            q_tot = 0
             for _ in range(self.N_l):
                 q_removed = h * cell_area * (cell_temp - air_temp)
                 q_row = q_removed * self.N_t * self.cell_stack
+                q_tot += q_row
                 air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
-            
+            # print(f"outlet air temp: {air_temp}")
+            # print(f"q dissipated {q_tot}")
             return q_removed
     
     """
@@ -351,12 +360,12 @@ class CellStaggeredSpacing:
             for l in s_l_vals:
 
                 h, p = self.known_v_and_spacing(inlet_velocity, t, l)
-                q = self.heat_transfer_rate(inlet_velocity, h, t)
+                # q = self.heat_transfer_rate(inlet_velocity, h, t)
                 q_per_cell = minimum_heat_transfer/(self.N * self.cell_stack)
                 last_cell_dissipation = self.last_cell_test(t,inlet_velocity, q_per_cell, h, cell_temp, ambient_temp)
-                if q < minimum_heat_transfer:
-                    h = 0
-                elif last_cell_dissipation < q_per_cell:
+                # if q < minimum_heat_transfer:
+                #     h = 0
+                if last_cell_dissipation < q_per_cell:
                     h = 0
                 elif target_dp is not None:
                     if p > (target_dp * (1+target_dp_margin/100)) or p < (target_dp * (1-target_dp_margin/100)):

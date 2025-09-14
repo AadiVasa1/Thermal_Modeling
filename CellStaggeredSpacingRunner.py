@@ -46,16 +46,16 @@ c = cs.CellStaggeredSpacing(13, 5, 2, 18.6e-3, 65.2e-3)
 
 # plt.show()
 
-q_req = .017 * ((60/5)**2) * 26 * 5
-t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .025], [.0174, .025], q_req, 60, 33, 300, .0001, .0001, .1, 2.5)
+q_req = .017 * ((62/5)**2) * 26 * 5
+
+t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .024], [.0174, .025], q_req, 60, 33, 300, .0001, .0001, .1, 25)
 print(f"max velocity: {c._v_max(.0186, t, l, inlet_v)}")
 print()
-q = c.heat_transfer_rate(inlet_v, h, t)
-print(f"q dissipated: {q}")
-print(f"q needed: {q_req}")
-
-# print(c.last_cell_test(.0246, 2, .017*144, 99))
-# print(.017 * 144)
+q, outlet_temp = c.heat_transfer_rate(inlet_v, h, t, outlet_temp_report = True)
+print(f"total q dissipated: {q}")
+print(f"last cell q dissipated: {c.last_cell_test(t, inlet_v, q_req / 26 / 5, h)}")
+print(f"q needed: {q_req / 26 / 5}")
+print(f"outlet temperature: {outlet_temp}")
 
 # h, p = c.known_v_and_spacing(inlet_v, t, .0174)
 
