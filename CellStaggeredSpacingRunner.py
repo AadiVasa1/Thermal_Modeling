@@ -2,8 +2,7 @@ import CellStaggeredSpacing as cs
 import matplotlib.pyplot as plt
 import numpy as np
 
-c = cs.CellStaggeredSpacing(13, 5, 2, 18.6e-3, 65.2e-3)
-
+c = cs.CellStaggeredSpacing(26, 3, 2, 18.6e-3, 65.2e-3, uneven_stagger=True)
 
 # ST=[] #Transverse Pitch
 # SL=[] #Longitudinal Pitch
@@ -46,27 +45,37 @@ c = cs.CellStaggeredSpacing(13, 5, 2, 18.6e-3, 65.2e-3)
 
 # plt.show()
 
-q_req = .017 * ((62/5)**2) * 26 * 5
+q_req = .017 * ((62/5)**2)
 
-t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([0.1, 10], [.02, .024], [.0174, .025], q_req, 60, 33, None, .0001, .0001, .1, 25)
+# v, p = c.known_v_and_spacing(2.1, 31.6e-3, 11.9e-3)
+# v_max = c._v_max(.0186, .0316, .0119, 2.1)
+# print(p)
+# print(v_max)
+
+t, l, inlet_v, h, p, _ = c.optimize_v_and_spacing([.1, 10], [.0323, .046], [.0118, .0119], q_req, 60, 33, None, .0001, .0001, .1)
 print(f"max velocity: {c._v_max(.0186, t, l, inlet_v)}")
 print()
+
 q, outlet_temp = c.heat_transfer_rate(inlet_v, h, t, outlet_temp_report = True)
+
 print(f"total q dissipated: {q}")
-last_cell_dissipation, q_cell_array, outlet_temp_array = c.last_cell_test(t, inlet_v, q_req / 26 / 5, h, q_temp_graph_by_row = True)
+
+last_cell_dissipation, q_cell_array, outlet_temp_array = c.last_cell_test(t, inlet_v, h, q_temp_graph_by_row = True)
+
 print(f"last cell q dissipated: {last_cell_dissipation}")
-print(f"q needed: {q_req / 26 / 5}")
+print(f"q needed: {q_req}")
 print(f"outlet temperature: {outlet_temp}")
 
+print(c._s_d(.0316, .0119))
+
 cell_row = []
-for i in range(13):
+for i in range(26):
     cell_row.append(i+1)
 
 plt.plot(cell_row, q_cell_array)
 plt.title('Q dissipated per Cell by Row')
 plt.xlabel('Cell Row Number')
 plt.ylabel('Q (W)')
-plt.legend()
 plt.grid(True)
 plt.show()
 
@@ -74,10 +83,8 @@ plt.plot(cell_row, outlet_temp_array)
 plt.title('Air Temperature per Cell by Row')
 plt.xlabel('Cell Row Number')
 plt.ylabel('T (C)')
-plt.legend()
 plt.grid(True)
 plt.show()
-# h, p = c.known_v_and_spacing(inlet_v, t, .0174)
 
 # h, p = c.known_v_and_spacing(1.3, .0225, .01725)
 # print()

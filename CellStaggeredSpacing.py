@@ -3,7 +3,7 @@ import math
 from scipy.optimize import minimize_scalar
 class CellStaggeredSpacing:
 
-    def __init__(self, num_rows, cells_per_row, cell_stack, cell_diameter, cell_height, air_density=1.09, air_thermal_conductivity=.025, air_specific_heat_capacity = 1007, air_dynamic_viscosity = 19.35e-6, air_prandtl = .705, surface_prandtl = 0.703):
+    def __init__(self, num_rows, cells_per_row, cell_stack, cell_diameter, cell_height, uneven_stagger = False, air_density=1.09, air_thermal_conductivity=.025, air_specific_heat_capacity = 1007, air_dynamic_viscosity = 19.35e-6, air_prandtl = .705, surface_prandtl = 0.703):
         self.N_l = num_rows #number of rows of cells/how many cells long from inlet to outlet
         self.N_t = cells_per_row #number of cells per row
         self.cell_stack = cell_stack #number of cells stacked vertically
@@ -11,6 +11,8 @@ class CellStaggeredSpacing:
 
         self.D = cell_diameter #m, cell diameter
         self.l = cell_height #m, cell height
+
+        self.uneven_stagger = uneven_stagger #True if rows dont have even num of cells (3, 2, 3, 2...)
 
         self.rho = air_density #kg/m3, air density, optional
         self.k = air_thermal_conductivity #W/mK, air thermal conductivity, optional
@@ -68,7 +70,7 @@ class CellStaggeredSpacing:
         :param s_l: longitudinal pitch (m)
         :return: s_d (m)
         """
-        return math.sqrt(s_t**2+(s_l/2)**2)
+        return math.sqrt(s_l**2+(s_t/2)**2)
 
     def _v_max(self, D, s_t, s_l, inlet_v):
         """
@@ -83,13 +85,14 @@ class CellStaggeredSpacing:
         s_d = self._s_d(s_t, s_l)
 
         if s_d < D:
+            print(f"err {s_d}")
             raise RuntimeError("Invalid s_d or diameter, ensure geometry has space for air")
         elif 2 * (s_d - D) < (s_t - D):
             return s_t * inlet_v / (2 * (s_d - D)) #max velocity occurs on A2 (diagonal) plane
         else:
             return s_t * inlet_v / (s_t - D) #max velocity occurs on A1 (transverse) plane
 
-    def _reynolds_max(self, v_max):
+    def _reynolds_max(self, v_max):  
         """
         returns max reynolds number
         :param v_max: max velocity obtained via self.v_max()
@@ -221,7 +224,7 @@ class CellStaggeredSpacing:
         f = self._p_friction_factor(P_t, reynolds)
 
         p_drop = self.N_l * chi * f * self.rho * (v_max**2) / 2 #N/m2
-        return p_drop #Convert to bars
+        return p_drop
 
     def _re_guess_from_nu_req(self, nu_req, s_t, s_l):
         """
@@ -279,7 +282,7 @@ class CellStaggeredSpacing:
             return q_dissipated, outlet_temp
         return q_dissipated
 
-    def last_cell_test(self, s_t, inlet_v, q_per_cell, h, cell_temp = 60, ambient_temp = 33, q_temp_graph_by_row = False):
+    def last_cell_test(self, s_t, inlet_v, h, cell_temp = 60, ambient_temp = 33, q_temp_graph_by_row = False):
             """
             determines if the last cell in the segment stays adaquetly cool enough by ensuring all heat is dissipated
 
@@ -299,9 +302,12 @@ class CellStaggeredSpacing:
             cell_area = self.D * math.pi * self.l
             q_removed = 0
             q_tot = 0
-            for _ in range(self.N_l):
+            for i in range(self.N_l):
                 q_removed = h * cell_area * (cell_temp - air_temp)
-                q_row = q_removed * self.N_t * self.cell_stack
+                if i%2 != 2 and self.uneven_stagger is True: 
+                    q_row = q_removed * (self.N_t - 1) * self.cell_stack
+                else:
+                    q_row = q_removed * self.N_t * self.cell_stack
                 q_tot += q_row
                 air_temp = (q_row + air_heat_capacity * air_temp) / air_heat_capacity
                 
@@ -343,7 +349,7 @@ class CellStaggeredSpacing:
 
         return float(h), float(pressure_drop)
 
-    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 60, target_dp = None, s_t_increment = .001, s_l_increment = .001, target_dp_margin = 2.5, should_print = True):
+    def known_v_optimize_spacing(self, inlet_velocity, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 33, target_dp = None, s_t_increment = .001, s_l_increment = .001, target_dp_margin = 2.5, should_print = True):
         """
         given an inlet velocity, figures out an optimal spacing that maximizes h / pressure drop
         also can give a minimum heat transfer rate so that anything below gets filtered out
@@ -371,8 +377,8 @@ class CellStaggeredSpacing:
 
                 h, p = self.known_v_and_spacing(inlet_velocity, t, l)
                 # q = self.heat_transfer_rate(inlet_velocity, h, t)
-                q_per_cell = minimum_heat_transfer/(self.N * self.cell_stack)
-                last_cell_dissipation = self.last_cell_test(t,inlet_velocity, q_per_cell, h, cell_temp, ambient_temp)
+                q_per_cell = minimum_heat_transfer
+                last_cell_dissipation = self.last_cell_test(t,inlet_velocity, h, cell_temp, ambient_temp)
                 # if q < minimum_heat_transfer:
                 #     h = 0
                 if last_cell_dissipation < q_per_cell:
@@ -399,7 +405,7 @@ class CellStaggeredSpacing:
 
         return optimal_s_t, optimal_s_l, max_h_over_p
 
-    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 60, target_dp = None, s_t_increment = .001, s_l_increment = .001, v_increment = .1, target_dp_margin = 2.5, should_print = True):
+    def optimize_v_and_spacing(self, inlet_v_bounds, s_t_bounds, s_l_bounds, minimum_heat_transfer = 0, cell_temp = 60, ambient_temp = 33, target_dp = None, s_t_increment = .001, s_l_increment = .001, v_increment = .1, target_dp_margin = 2.5, should_print = True):
         """
            given bounds for inlet velocity, figures out optimal spacing that maximizes h / (pressure drop * v * s_t)
            as this correlates to cooling effectiveness / fan power
@@ -446,7 +452,7 @@ class CellStaggeredSpacing:
             print(f"Longitudinal pitch: {optimal_s_l}")
             print(f"Inlet Velocity: {optimal_v}")
             print(f"h value: {optimal_h}")
-            print(f"Pressure Drop: : {optimal_pressure_drop}")
+            print(f"Pressure Drop - Used for Optimization, Use CFD to Validate: {optimal_pressure_drop}")
             print(f"h/vp val: {max_h_over_vp}")
 
         return optimal_s_t, optimal_s_l, optimal_v, optimal_h, optimal_pressure_drop, max_h_over_vp
